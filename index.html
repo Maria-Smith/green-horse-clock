@@ -117,6 +117,30 @@
 
       ctx.fillText("Please consult the Glock", centerX, centerY - radius - fontSize);
 
+      // Calculate remaining awake hours and percentage
+      const totalAwakeHours = wakeTime <= sleepStart ? 
+        (24 - sleepStart + wakeTime) : 
+        (wakeTime - sleepStart);
+      
+      let remainingHours;
+      if (currentHour >= wakeTime) {
+        remainingHours = (sleepStart + 24) - currentHour;
+      } else if (currentHour < sleepStart) {
+        // Still in sleep period, show hours until next wake
+        remainingHours = wakeTime - currentHour;
+      } else {
+        remainingHours = sleepStart - currentHour;
+      }
+      
+      const percentageRemaining = (remainingHours / totalAwakeHours) * 100;
+      const remainingMins = Math.floor((remainingHours % 1) * 60);
+      const remainingHoursPart = Math.floor(remainingHours);
+      
+      ctx.fillStyle = '#99dd44';
+      ctx.font = (fontSize * 0.8) + 'px Consolas';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Remaining: ${remainingHoursPart}h ${remainingMins}m (${percentageRemaining.toFixed(1)}%)`, centerX, centerY + radius + fontSize * 2.5);
+
       ctx.beginPath();
       ctx.lineWidth = 1;
       ctx.strokeStyle = '#99aa44';
