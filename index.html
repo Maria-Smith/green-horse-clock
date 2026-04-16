@@ -21,10 +21,7 @@
       max-height: 600px;
     }
     #clock {
-        image-rendering: pixelated;
-    }
-    canvas { 
-      border: 1px solid #333; 
+      border: 1px solid #333;
       width: 100%;
       height: 100%;
       display: block;
@@ -33,29 +30,18 @@
 </head>
 <body>
   <div id="clockContainer">
-    <canvas id="clock"></canvas>
+    <svg id="clock" viewBox="-30 -50 360 410" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
 
   <script>
-    const canvas = document.getElementById('clock');
-    const ctx = canvas.getContext('2d');
+    const svg = document.getElementById('clock');
     let radius = 150;
-    let centerX = canvas.width / 2;
-    let centerY = canvas.height / 2;
+    const centerX = 150;
+    const centerY = 150;
 
     // Default sleep schedule (3am–noon)
     let sleepStart = 3; // hours
     let wakeTime = 12; // hours
-
-    function resizeCanvas() {
-      const container = document.getElementById('clockContainer');
-      const size = Math.min(container.offsetWidth, container.offsetHeight);
-      canvas.width = size;
-      canvas.height = size;
-      radius = size * 0.375;
-      centerX = canvas.width / 2;
-      centerY = canvas.height / 2;
-    }
 
     function getPragueTime() {
       const now = new Date();
@@ -68,6 +54,27 @@
       };
     }
 
+    function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+      const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+      return {
+        x: centerX + (radius * Math.cos(angleInRadians)),
+        y: centerY + (radius * Math.sin(angleInRadians))
+      };
+    }
+
+    function describeArc(x, y, radius, startAngle, endAngle) {
+      const start = polarToCartesian(x, y, radius, endAngle);
+      const end = polarToCartesian(x, y, radius, startAngle);
+      const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+      const d = [
+        "M", x, y,
+        "L", start.x, start.y,
+        "A", radius, radius, 0, largeArc, 0, end.x, end.y,
+        "Z"
+      ].join(" ");
+      return d;
+    }
+
     function drawClock() {
       const time = getPragueTime();
       const hours = time.hours;
@@ -76,49 +83,112 @@
       const now = time.date;
       const currentHour = hours + minutes / 60 + seconds / 3600;
 
-      // Clear canvas
-      ctx.fillStyle = '#1a1a1a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw sleep period (3am–noon = 3–12)
-      ctx.fillStyle = 'rgba(100, 200, 100, 0.2)';
-      drawArc(wakeTime, sleepStart + 24); // wraps around midnight
-      
-      // Draw awake period (noon–3am = 12–27 on 24h scale)
-      ctx.fillStyle = 'rgba(50, 120, 50, 0.2)';
-      drawArc(sleepStart + 24, wakeTime + 24);
-
-      // Draw current time indicator
-      ctx.fillStyle = '#99ff00';
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius * 0.033, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Draw hour hand
-      const angleHour = (currentHour / 24) * Math.PI * 2 - Math.PI / 2;
-      ctx.strokeStyle = '#99ff00';
-      ctx.lineWidth = Math.max(3, radius * 0.02);
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.lineTo(centerX + Math.cos(angleHour) * (radius * 0.7), centerY + Math.sin(angleHour) * (radius * 0.7));
-      ctx.stroke();
-
-      // Draw numbers 0–23
-      ctx.fillStyle = '#99dd44';
-      const fontSize = Math.max(12, radius * 0.08);
-      ctx.font = fontSize + 'px Consolas';
-      ctx.textAlign = 'center';
-      for (let i = 0; i < 24; i++) {
-        const angle = (i / 24) * Math.PI * 2 - Math.PI / 2;
-        const x = centerX + Math.cos(angle) * (radius - fontSize);
-        const y = centerY + Math.sin(angle) * (radius - fontSize);
-        ctx.fillText(i, x, y + fontSize * 0.3);
+      // Clear SVG
+      while (svg.firstChild) {
+        svg.removeChild(svg.firstChild);
       }
 
-      ctx.fillText(now.toLocaleTimeString('cs'), centerX, centerY + fontSize * 2);
-      ctx.fillText(now.toLocaleDateString('cs'), centerX, centerY + fontSize * 3);
+      // Background
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('x', '-30');
+      bg.setAttribute('y', '-50');
+      bg.setAttribute('width', '360');
+      bg.setAttribute('height', '410');
+      bg.setAttribute('fill', '#1a1a1a');
+      svg.appendChild(bg);
 
-      ctx.fillText("Please consult the Glock", centerX, centerY - radius - fontSize);
+      // Draw sleep period (3am–noon = 3–12)
+      const sleepArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      sleepArc.setAttribute('d', describeArc(centerX, centerY, radius, wakeTime * 15, (sleepStart + 24) * 15));
+      sleepArc.setAttribute('fill', 'rgba(100, 200, 100, 0.2)');
+      svg.appendChild(sleepArc);
+      
+      // Draw awake period (noon–3am = 12–27 on 24h scale)
+      const awakeArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      awakeArc.setAttribute('d', describeArc(centerX, centerY, radius, (sleepStart + 24) * 15, (wakeTime + 24) * 15));
+      awakeArc.setAttribute('fill', 'rgba(50, 120, 50, 0.2)');
+      svg.appendChild(awakeArc);
+
+      // Draw current time indicator (center dot)
+      const centerDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      centerDot.setAttribute('cx', centerX);
+      centerDot.setAttribute('cy', centerY);
+      centerDot.setAttribute('r', radius * 0.033);
+      centerDot.setAttribute('fill', '#99ff00');
+      svg.appendChild(centerDot);
+
+      // Draw hour hand
+      const angleHour = (currentHour / 24) * 360 - 90;
+      const handEnd = polarToCartesian(centerX, centerY, radius * 0.7, angleHour + 90);
+      const hourHand = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      hourHand.setAttribute('x1', centerX);
+      hourHand.setAttribute('y1', centerY);
+      hourHand.setAttribute('x2', handEnd.x);
+      hourHand.setAttribute('y2', handEnd.y);
+      hourHand.setAttribute('stroke', '#99ff00');
+      hourHand.setAttribute('stroke-width', Math.max(3, radius * 0.02));
+      hourHand.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(hourHand);
+
+      // Draw numbers 0–23
+      const fontSize = Math.max(12, radius * 0.08);
+      for (let i = 0; i < 24; i++) {
+        const angle = (i / 24) * 360 - 90;
+        const pos = polarToCartesian(centerX, centerY, radius - fontSize * 0.8, angle + 90);
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', pos.x);
+        text.setAttribute('y', pos.y);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('fill', '#99dd44');
+        text.setAttribute('font-family', 'Consolas, monospace');
+        text.setAttribute('font-size', fontSize);
+        text.textContent = i;
+        svg.appendChild(text);
+      }
+
+      // Draw circle border
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', centerX);
+      circle.setAttribute('cy', centerY);
+      circle.setAttribute('r', radius);
+      circle.setAttribute('fill', 'none');
+      circle.setAttribute('stroke', '#99aa44');
+      circle.setAttribute('stroke-width', '1');
+      svg.appendChild(circle);
+
+      // Draw time text
+      const timeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      timeText.setAttribute('x', centerX);
+      timeText.setAttribute('y', centerY + fontSize * 2);
+      timeText.setAttribute('text-anchor', 'middle');
+      timeText.setAttribute('fill', '#99dd44');
+      timeText.setAttribute('font-family', 'Consolas, monospace');
+      timeText.setAttribute('font-size', fontSize);
+      timeText.textContent = now.toLocaleTimeString('cs');
+      svg.appendChild(timeText);
+
+      // Draw date text
+      const dateText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      dateText.setAttribute('x', centerX);
+      dateText.setAttribute('y', centerY + fontSize * 3);
+      dateText.setAttribute('text-anchor', 'middle');
+      dateText.setAttribute('fill', '#99dd44');
+      dateText.setAttribute('font-family', 'Consolas, monospace');
+      dateText.setAttribute('font-size', fontSize);
+      dateText.textContent = now.toLocaleDateString('cs');
+      svg.appendChild(dateText);
+
+      // Draw header text
+      const headerText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      headerText.setAttribute('x', centerX);
+      headerText.setAttribute('y', centerY - radius - fontSize);
+      headerText.setAttribute('text-anchor', 'middle');
+      headerText.setAttribute('fill', '#99dd44');
+      headerText.setAttribute('font-family', 'Consolas, monospace');
+      headerText.setAttribute('font-size', fontSize);
+      headerText.textContent = 'Please consult the Glock';
+      svg.appendChild(headerText);
 
       // Calculate remaining hours until bedtime (sleepStart)
       let statusText;
@@ -141,38 +211,23 @@
         statusText = `Remaining: ${remainingHoursPart}h ${remainingMins}m`;
       }
       
-      ctx.fillStyle = '#99dd44';
-      ctx.font = (fontSize * 0.8) + 'px Consolas';
-      ctx.textAlign = 'center';
-      ctx.fillText(statusText, centerX, centerY + radius + fontSize * 2.5);
-
-      ctx.beginPath();
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = '#99aa44';
-      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    function drawArc(start, end) {
-      const startAngle = (start / 24) * Math.PI * 2 - Math.PI / 2;
-      const endAngle = (end / 24) * Math.PI * 2 - Math.PI / 2;
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-      ctx.closePath();
-      ctx.fill();
+      const statusTextElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      statusTextElement.setAttribute('x', centerX);
+      statusTextElement.setAttribute('y', centerY + radius + fontSize * 2.5);
+      statusTextElement.setAttribute('text-anchor', 'middle');
+      statusTextElement.setAttribute('fill', '#99dd44');
+      statusTextElement.setAttribute('font-family', 'Consolas, monospace');
+      statusTextElement.setAttribute('font-size', fontSize * 0.8);
+      statusTextElement.textContent = statusText;
+      svg.appendChild(statusTextElement);
     }
 
     // Initialize
-    resizeCanvas();
     setInterval(drawClock, 1000);
     drawClock();
 
-    // Handle window resize
-    window.addEventListener('resize', () => {
-      resizeCanvas();
-      drawClock();
-    });
+    // Handle window resize (SVG scales automatically with viewBox)
+    window.addEventListener('resize', drawClock);
   </script>
 </body>
 </html>
