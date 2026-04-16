@@ -120,29 +120,31 @@
 
       ctx.fillText("Please consult the Glock", centerX, centerY - radius - fontSize);
 
-      // Calculate remaining awake hours and percentage
-      const totalAwakeHours = wakeTime <= sleepStart ? 
-        (24 - sleepStart + wakeTime) : 
-        (wakeTime - sleepStart);
-      
-      let remainingHours;
-      if (currentHour >= wakeTime) {
-        remainingHours = (sleepStart + 24) - currentHour;
-      } else if (currentHour < sleepStart) {
-        // Still in sleep period, show hours until next wake
-        remainingHours = wakeTime - currentHour;
+      // Calculate remaining hours until bedtime (sleepStart)
+      let statusText;
+      if (currentHour >= sleepStart && currentHour < wakeTime) {
+        // Between sleepStart (3am) and wakeTime (noon) - bedtime period
+        statusText = '!!!bedtime!!!';
       } else {
-        remainingHours = sleepStart - currentHour;
+        // Calculate remaining hours until bedtime
+        let remainingHours;
+        if (currentHour < sleepStart) {
+          // Early morning before sleep (0:00 to 3:00)
+          remainingHours = sleepStart - currentHour;
+        } else {
+          // Awake period (12:00 onwards until 3:00 next day)
+          remainingHours = (sleepStart + 24) - currentHour;
+        }
+        
+        const remainingMins = Math.floor((remainingHours % 1) * 60);
+        const remainingHoursPart = Math.floor(remainingHours);
+        statusText = `Remaining: ${remainingHoursPart}h ${remainingMins}m`;
       }
-      
-      const percentageRemaining = (remainingHours / totalAwakeHours) * 100;
-      const remainingMins = Math.floor((remainingHours % 1) * 60);
-      const remainingHoursPart = Math.floor(remainingHours);
       
       ctx.fillStyle = '#99dd44';
       ctx.font = (fontSize * 0.8) + 'px Consolas';
       ctx.textAlign = 'center';
-      ctx.fillText(`Remaining: ${remainingHoursPart}h ${remainingMins}m (${percentageRemaining.toFixed(1)}%)`, centerX, centerY + radius + fontSize * 2.5);
+      ctx.fillText(statusText, centerX, centerY + radius + fontSize * 2.5);
 
       ctx.beginPath();
       ctx.lineWidth = 1;
